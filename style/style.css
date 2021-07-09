@@ -1,40 +1,56 @@
 .wrap {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
 }
 
-.player, .computer{
-    border: 4px solid blue;
-    margin: 20px;
-    width: 35em;
-    height: 35em;
-    display: flex;
-    flex-flow: row wrap;
+.player,
+.computer {
+  border: 4px solid blue;
+  margin: 20px;
+  width: 35em;
+  height: 35em;
+  display: flex;
+  flex-flow: row wrap;
 }
 
-.player__cell, .computer__cell{
-    border: 1px solid gray;
-    width: 9.5%;
-    height: 9.7%;
-    
+.player__cell,
+.computer__cell {
+  border: 1px solid gray;
+  width: 9.5%;
+  height: 9.7%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .menu {
-    display: flex;
-    justify-content: center;
+  display: flex;
+  justify-content: center;
 }
 
 .menu__newGame {
-    padding: 10px;
+  padding: 10px;
 }
 
 .chosen {
-    /* border: 1px solid red; */
-    background-color: red;
+  /* border: 1px solid red; */
+  background-color: red;
 }
 
 .available {
-    /* border: 1px solid green; */
-    background-color: green;
+  /* border: 1px solid green; */
+  background-color: green;
+}
+
+.point {
+  width: 12px;
+  height: 12px;
+  background-color: brown;
+  border-radius: 50%;
+}
+
+.explosion {
+  background-image: url("explosion");
+  background-size: 100%;
 }
