@@ -65,7 +65,6 @@ autoAlignmentPlayer.addEventListener("click", () => {
   playerGrid[autoAlignment(playerField, playerCells, playerGrid)].dispatchEvent(
     new Event("click", { bubbles: true })
   );
-
   while (!array_compare(playerField.ships, NumberOfShips)) {
     autoAlignmentPlayer.dispatchEvent(new Event("click"));
   }
@@ -93,7 +92,9 @@ computerHandler.addEventListener("click", (event) => {
   if (computerField.mode === "battle") {
     let row = +event.target.dataset.row;
     let column = +event.target.dataset.column;
+    if (computerCells[row][column].shot) return;
     shot(row, column, computerField, computerCells, computerGrid);
+    turnOfComputer(playerField, playerCells, playerGrid);
     return;
   }
   if (!event.target.classList.contains("computer__cell")) return;
@@ -109,6 +110,12 @@ computerHandler.addEventListener("click", (event) => {
 });
 
 playerHandler.addEventListener("click", (event) => {
+  if (playerField.mode === "battle") {
+    let row = +event.target.dataset.row;
+    let column = +event.target.dataset.column;
+    shot(row, column, playerField, playerCells, playerGrid);
+    return;
+  }
   if (!event.target.classList.contains("player__cell")) return;
   if (array_compare(playerField.ships, NumberOfShips)) return;
   let row = +event.target.dataset.row;
@@ -367,95 +374,97 @@ function delShip(field, grid) {
 }
 
 function shot(row, column, field, cells, grid) {
+  if (cells[row][column].shot) return;
+  cells[row][column].shot = true;
   if (cells[row][column].busy) {
-    cells[row][column].shot = true;
-    //grid[row * 10 + column].style.backgroundColor = "orange";explosion
     grid[row * 10 + column].classList.add("explosion");
-    if (!isAlive(row, column, cells)) {
-      let neighbours = [
-        [0, -1],
-        [0, -1],
-        [1, 0],
-        [1, 0],
-        [0, 1],
-        [0, 1],
-        [-1, 0],
-        [0, -1],
-      ];
-      let change;
-      while ((change = neighbours.pop())) {
-        row += change[0];
-        column += change[1];
-        if (
-          row < 0 ||
-          row >= cells.length ||
-          column < 0 ||
-          column >= cells.length
-        )
-          continue;
-        shot(row, column, field, cells, grid);
+    let shipCondition = checkShip(row, column, field, cells);
+    if (!shipCondition.isAlive) {
+      if (shipCondition.stern != shipCondition.bow) {
+        shotNeighborhood(shipCondition.stern.row, shipCondition.stern.column, field, cells, grid);
+        shotNeighborhood(shipCondition.bow.row, shipCondition.bow.column, field, cells, grid);
+        return;
       }
+      shotNeighborhood(row, column, field, cells, grid);
     }
   } else {
-    //grid[row * 10 + column].style.backgroundColor = "pink";
-
     let point = document.createElement("div");
     point.classList.add("point");
-
-    grid[row * 10 + column].append(point);
-    //cells[row][column].shot = true;
+    grid[row * 10 + column].append(point);    
   }
 }
 
-function isAlive(row, column, cells) {
-  // const neighbours = [
-  //   [-1, 1],
-  //   [1, 1],
-  //   [1, -1],
-  //   [-1, 0],
-  // ];
-  // if (!checkNeighbour(row, column, cells, neighbours)) return true;
+function checkShip(row, column, field, cells) { 
   let count = 0;
-  const ship = [cells[row][column]];
-  const neighbours = [
-    [-1, 1],
-    [1, 1],
-    [1, -1],
+  let minColumn=column;
+  let maxColumn=column;
+  while (--minColumn >=0 && cells[row][minColumn].busy) {
+    count++;
+    if (!cells[row][minColumn].shot) return {isAlive: true};
+  }
+  while (++maxColumn < cells.length && cells[row][maxColumn].busy){
+    count++;
+    if (!cells[row][maxColumn].shot) return {isAlive: true};
+  }
+  if (count>0) {
+    field.ships[count]--;
+    return {
+      isAlive: false,
+      bow: cells[row][++minColumn],
+      stern: cells[row][--maxColumn]
+    }
+  }
+
+  let maxRow = row;
+  let minRow = row;
+  while (--minRow >=0 && cells[minRow][column].busy) {
+    count++;
+    if (!cells[minRow][column].shot) return {isAlive: true};
+  }
+  while (++maxRow < cells.length && cells[maxRow][column].busy){
+    count++;
+    if (!cells[maxRow][column].shot) return {isAlive: true};
+  }  
+  field.ships[count]--;
+  return {
+    isAlive: false,
+    bow: cells[++minRow][column],
+    stern: cells[--maxRow][column]
+  }
+}
+
+function shotNeighborhood(row, column, field, cells, grid) {
+  let neighbours = [
+    [0, -1],
+    [0, -1],
+    [1, 0],
+    [1, 0],
+    [0, 1],
+    [0, 1],
     [-1, 0],
+    [0, -1],
   ];
   let change;
   while ((change = neighbours.pop())) {
     row += change[0];
     column += change[1];
-    if (row < 0 || row >= cells.length || column < 0 || column >= cells.length)
+    if (
+      row < 0 ||
+      row >= cells.length ||
+      column < 0 ||
+      column >= cells.length
+    )
       continue;
-    if (cells[row][column].busy) {
-      count++;
-      if (!cells.shot) return true;
-      break;
-    }
+    shot(row, column, field, cells, grid);
   }
-  shipFormation(row, column, cells, ship);
 }
 
-function shipFormation(row, column, cells, ship) {
-  if (ship[0].row === row) {
-    let minColumn;
-    let maxColumn;
-    if (column > ship[0].column) {
-      ship.push(cells[row][column]);
-      minColumn = ship[0].column;
-      maxColumn = column;
-    } else {
-      minColumn = column;
-      maxColumn = ship[ship.length - 1];
-      ship.shift(cells[row][column]);
-    }
-    while (cells[row][--minColumn].busy) {
-      //if (cells[row][minColumn].shot)
-    }
-  } else {
-    if (row > ship[0].row) ship.push(cells[row][column]);
-    else ship.shift(cells[row][column]);
-  }
+function turnOfComputer(field, cells, grid) {
+  let row;
+  let column;
+  do {
+    row = Math.floor(Math.random() * cells.length);
+    column = Math.floor(Math.random() * cells.length);
+  } while(cells[row][column].shot)
+  grid[row * 10 + column].dispatchEvent(new Event("click", {bubbles: true}));
 }
