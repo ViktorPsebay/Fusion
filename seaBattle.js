@@ -96,12 +96,23 @@ delShipButton.addEventListener("click", () => {
 
 computerHandler.addEventListener("click", (event) => {
   if (!event.target.classList.contains("computer__cell")) return;
+
   if (computerField.mode === "battle") {
     let row = +event.target.dataset.row;
     let column = +event.target.dataset.column;
+
     if (computerCells[row][column].shot) return;
-    shot(row, column, computerField, computerCells, computerGrid);
+
+    let resultOfShot = shot(
+      row,
+      column,
+      computerField,
+      computerCells,
+      computerGrid
+    );
+    if (resultOfShot !== "miss") return;
     turnOfComputer(playerField, playerCells, playerGrid);
+
     return;
   }
 
@@ -309,7 +320,7 @@ function removeAvailableCells(field, grid) {
 function array_compare(a, b) {
   if (a.length != b.length) return false;
 
-  for (i = 0; i < a.length; i++) if (a[i] != b[i]) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] != b[i]) return false;
 
   return true;
 }
@@ -505,9 +516,13 @@ function turnOfComputer(field, cells, grid) {
   }
   if (!(resultOfShot === "injured")) return;
   chooseNextCell(row, column, field, cells, grid);
+  if (resultOfShot !== "miss")
+    setTimeout(() => {
+      turnOfComputer(field, cells, grid);
+    }, 500);
 }
 
-function chooseNextCell(row, column, field, cells, grid) {
+function chooseNextCell(row, column, field, cells) {
   if (field.shoted.length === 0) {
     field.shoted.push(cells[row][column]);
     if (--row >= 0) field.available.push(cells[row][column]);
