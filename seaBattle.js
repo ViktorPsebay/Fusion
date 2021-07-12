@@ -54,6 +54,8 @@ const computerField = new Field();
 
 const playerGrid = document.querySelectorAll(".player__cell");
 const computerGrid = document.querySelectorAll(".computer__cell");
+const playerStat = document.querySelector(".informationAboutPlayer");
+const computerStat = document.querySelector(".informationAboutComputer");
 
 const setShipButton = document.querySelector(".menu__setShip");
 const delShipButton = document.querySelector(".menu__delShip");
@@ -68,6 +70,7 @@ autoAlignmentPlayer.addEventListener("click", () => {
   while (!array_compare(playerField.ships, NumberOfShips)) {
     autoAlignmentPlayer.dispatchEvent(new Event("click"));
   }
+  startBattleButton.hidden = false;
 });
 
 newGameButton.addEventListener("click", () => {
@@ -78,10 +81,13 @@ startBattleButton.addEventListener("click", () => {
   autoAlignmentOfComputer(computerField, computerCells, computerGrid);
   playerField.mode = "battle";
   computerField.mode = "battle";
+  countShips();
 });
 
 setShipButton.addEventListener("click", () => {
   setShip(playerField, playerGrid);
+  if (array_compare(playerField.ships, NumberOfShips))
+    startBattleButton.hidden = false;
 });
 
 delShipButton.addEventListener("click", () => {
@@ -89,6 +95,7 @@ delShipButton.addEventListener("click", () => {
 });
 
 computerHandler.addEventListener("click", (event) => {
+  if (!event.target.classList.contains("computer__cell")) return;
   if (computerField.mode === "battle") {
     let row = +event.target.dataset.row;
     let column = +event.target.dataset.column;
@@ -97,7 +104,7 @@ computerHandler.addEventListener("click", (event) => {
     turnOfComputer(playerField, playerCells, playerGrid);
     return;
   }
-  if (!event.target.classList.contains("computer__cell")) return;
+
   if (array_compare(computerField.ships, NumberOfShips)) return;
   let row = +event.target.dataset.row;
   let column = +event.target.dataset.column;
@@ -128,23 +135,27 @@ playerHandler.addEventListener("click", (event) => {
   playerField.mode = "arrangement";
 });
 
-function setAvailableCell(row, column, field, grid, cells) {
-  removeAvailableCells(field, grid);
-  if (field.chosen.length > 3) return;
-  else if (field.chosen.length === 3 && field.ships[3] > 0) return;
-  else if (
-    field.chosen.length === 2 &&
-    field.ships[3] > 0 &&
-    field.ships[2] > 1
-  )
-    return;
-  else if (
+const areThereMoreThanSingleDeck = function (field) {
+  return (
     field.chosen.length === 1 &&
     field.ships[3] > 0 &&
     field.ships[2] > 1 &&
     field.ships[1] > 2
-  )
-    return;
+  );
+};
+const areThereMoreThanDoubleDeck = function (field) {
+  return field.chosen.length === 2 && field.ships[3] > 0 && field.ships[2] > 1;
+};
+const areThereMoreThanTripleDeck = function (field) {
+  return field.chosen.length === 3 && field.ships[3] > 0;
+};
+
+function setAvailableCell(row, column, field, grid, cells) {
+  removeAvailableCells(field, grid);
+  if (field.chosen.length > 3) return;
+  else if (areThereMoreThanTripleDeck(field)) return;
+  else if (areThereMoreThanDoubleDeck(field)) return;
+  else if (areThereMoreThanSingleDeck(field)) return;
   if (field.mode === "wait") {
     column--;
     let neighbours = [
@@ -358,6 +369,10 @@ function setShip(field, grid) {
   while ((chosen = field.chosen.pop())) {
     chosen.busy = true;
     grid[chosen.row * 10 + chosen.column].style.backgroundColor = "black";
+    if (
+      grid[chosen.row * 10 + chosen.column].classList.contains("computer__cell")
+    )
+      grid[chosen.row * 10 + chosen.column].style.backgroundColor = "white";
     removeAvailableCells(field, grid);
     field.mode = "wait";
   }
@@ -380,57 +395,73 @@ function shot(row, column, field, cells, grid) {
     grid[row * 10 + column].classList.add("explosion");
     let shipCondition = checkShip(row, column, field, cells);
     if (!shipCondition.isAlive) {
+      countShips();
       if (shipCondition.stern != shipCondition.bow) {
-        shotNeighborhood(shipCondition.stern.row, shipCondition.stern.column, field, cells, grid);
-        shotNeighborhood(shipCondition.bow.row, shipCondition.bow.column, field, cells, grid);
-        return;
+        shotNeighborhood(
+          shipCondition.stern.row,
+          shipCondition.stern.column,
+          field,
+          cells,
+          grid
+        );
+        shotNeighborhood(
+          shipCondition.bow.row,
+          shipCondition.bow.column,
+          field,
+          cells,
+          grid
+        );
+        return "killed";
       }
       shotNeighborhood(row, column, field, cells, grid);
+      return "killed";
     }
+    return "injured";
   } else {
     let point = document.createElement("div");
     point.classList.add("point");
-    grid[row * 10 + column].append(point);    
+    grid[row * 10 + column].append(point);
+    return "miss";
   }
 }
 
-function checkShip(row, column, field, cells) { 
+function checkShip(row, column, field, cells) {
   let count = 0;
-  let minColumn=column;
-  let maxColumn=column;
-  while (--minColumn >=0 && cells[row][minColumn].busy) {
+  let minColumn = column;
+  let maxColumn = column;
+  while (--minColumn >= 0 && cells[row][minColumn].busy) {
     count++;
-    if (!cells[row][minColumn].shot) return {isAlive: true};
+    if (!cells[row][minColumn].shot) return { isAlive: true };
   }
-  while (++maxColumn < cells.length && cells[row][maxColumn].busy){
+  while (++maxColumn < cells.length && cells[row][maxColumn].busy) {
     count++;
-    if (!cells[row][maxColumn].shot) return {isAlive: true};
+    if (!cells[row][maxColumn].shot) return { isAlive: true };
   }
-  if (count>0) {
+  if (count > 0) {
     field.ships[count]--;
     return {
       isAlive: false,
       bow: cells[row][++minColumn],
-      stern: cells[row][--maxColumn]
-    }
+      stern: cells[row][--maxColumn],
+    };
   }
 
   let maxRow = row;
   let minRow = row;
-  while (--minRow >=0 && cells[minRow][column].busy) {
+  while (--minRow >= 0 && cells[minRow][column].busy) {
     count++;
-    if (!cells[minRow][column].shot) return {isAlive: true};
+    if (!cells[minRow][column].shot) return { isAlive: true };
   }
-  while (++maxRow < cells.length && cells[maxRow][column].busy){
+  while (++maxRow < cells.length && cells[maxRow][column].busy) {
     count++;
-    if (!cells[maxRow][column].shot) return {isAlive: true};
-  }  
+    if (!cells[maxRow][column].shot) return { isAlive: true };
+  }
   field.ships[count]--;
   return {
     isAlive: false,
     bow: cells[++minRow][column],
-    stern: cells[--maxRow][column]
-  }
+    stern: cells[--maxRow][column],
+  };
 }
 
 function shotNeighborhood(row, column, field, cells, grid) {
@@ -448,12 +479,7 @@ function shotNeighborhood(row, column, field, cells, grid) {
   while ((change = neighbours.pop())) {
     row += change[0];
     column += change[1];
-    if (
-      row < 0 ||
-      row >= cells.length ||
-      column < 0 ||
-      column >= cells.length
-    )
+    if (row < 0 || row >= cells.length || column < 0 || column >= cells.length)
       continue;
     shot(row, column, field, cells, grid);
   }
@@ -463,8 +489,87 @@ function turnOfComputer(field, cells, grid) {
   let row;
   let column;
   do {
-    row = Math.floor(Math.random() * cells.length);
-    column = Math.floor(Math.random() * cells.length);
-  } while(cells[row][column].shot)
-  grid[row * 10 + column].dispatchEvent(new Event("click", {bubbles: true}));
+    if (field.available.length) {
+      let numOfAvailable = Math.floor(Math.random() * field.available.length);
+      row = field.available[numOfAvailable].row;
+      column = field.available[numOfAvailable].column;
+    } else {
+      row = Math.floor(Math.random() * cells.length);
+      column = Math.floor(Math.random() * cells.length);
+    }
+  } while (cells[row][column].shot);
+  let resultOfShot = shot(row, column, field, cells, grid);
+  if (resultOfShot === "killed") {
+    field.shoted = [];
+    field.available = [];
+  }
+  if (!(resultOfShot === "injured")) return;
+  chooseNextCell(row, column, field, cells, grid);
+}
+
+function chooseNextCell(row, column, field, cells, grid) {
+  if (field.shoted.length === 0) {
+    field.shoted.push(cells[row][column]);
+    if (--row >= 0) field.available.push(cells[row][column]);
+    ++row;
+    if (--column >= 0) field.available.push(cells[row][column]);
+    ++column;
+    if (++row < cells.length) field.available.push(cells[row][column]);
+    --row;
+    if (++column < cells.length) field.available.push(cells[row][column]);
+    --column;
+  } else {
+    field.available = [];
+    if (field.shoted[0].row === row) {
+      if (field.shoted[0].column > column)
+        field.shoted.unshift(cells[row][column]);
+      else field.shoted.push(cells[row][column]);
+      if (field.shoted[0].column - 1 >= 0)
+        field.available.push(cells[row][field.shoted[0].column - 1]);
+      if (field.shoted[field.shoted.length - 1].column + 1 < cells.length)
+        field.available.push(
+          cells[row][field.shoted[field.shoted.length - 1].column + 1]
+        );
+    } else {
+      if (field.shoted[0].row > row) field.shoted.unshift(cells[row][column]);
+      else field.shoted.push(cells[row][column]);
+      if (field.shoted[0].row - 1 >= 0)
+        field.available.push(cells[field.shoted[0].row - 1][column]);
+      if (field.shoted[field.shoted.length - 1].row + 1 < cells.length)
+        field.available.push(
+          cells[field.shoted[field.shoted.length - 1].row + 1][column]
+        );
+    }
+  }
+}
+
+function countShips() {
+  let countOfPlayerShip = 0;
+  let countOfComputerShip = 0;
+  for (let i = 0; i < playerField.ships.length; ++i) {
+    countOfPlayerShip += playerField.ships[i];
+  }
+  for (let i = 0; i < computerField.ships.length; ++i) {
+    countOfComputerShip += computerField.ships[i];
+  }
+  playerStat.innerHTML = `У вас осталось ${countOfPlayerShip} кораблей:
+    ${playerField.ships[3]} 4палубных
+    ${playerField.ships[2]} 3палубных
+    ${playerField.ships[1]} 2палубных
+    ${playerField.ships[0]} 1палубных`;
+
+  computerStat.innerHTML = `У противника осталось ${countOfComputerShip} кораблей:
+    ${computerField.ships[3]} 4палубных
+    ${computerField.ships[2]} 3палубных
+    ${computerField.ships[1]} 2палубных
+    ${computerField.ships[0]} 1палубных`;
+
+  if (countOfPlayerShip == 0) {
+    alert("победа компьютера");
+    location.reload();
+  }
+  if (countOfComputerShip == 0) {
+    alert("Вы выиграли!");
+    location.reload();
+  }
 }
